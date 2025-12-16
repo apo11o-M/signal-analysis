@@ -49,3 +49,6 @@ release/
 # miscallaneous
 .DS_Store
 __MACOSX
+
+*.csv
+*.log
