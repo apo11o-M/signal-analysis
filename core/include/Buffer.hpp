@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cstddef>
 #include <utility>
+#include <iostream>
 
 // A buffer class that holds data for processing, could be both on host and device
 // TODO: add cuda implementation later
@@ -63,6 +64,20 @@ public:
         std::memset(h_ptr_, value, size_ * sizeof(T));
     }
 
+    void zeroize() {
+        std::memset(h_ptr_, 0, size_ * sizeof(T));
+    }
+
+    void dump(std::ostream& stream = std::cout) const {
+        stream << "Buffer: " << name << ", size: " << size_ << "\n";
+
+        stream << "[";
+        for (size_t i = 0; i < size_ - 1; i++) {
+            stream << h_ptr_[i] << " "
+        }
+        stream << h_ptr_[size_ - 1] << "]\n";
+    }
+
 private:
     void release() {
         delete[] h_ptr_;
@@ -71,13 +86,15 @@ private:
     }
 
 private:
+    std::string name;
+
     size_t size_ = 0;
 
     // host array pointer
     T* h_ptr_ = nullptr;
 
     // device array pointer
-    // T* d_ptr_ = nullptr;d
+    // T* d_ptr_ = nullptr;
 
 };
 
