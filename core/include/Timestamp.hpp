@@ -11,7 +11,7 @@ struct Timestamp {
     friend std::ostream& operator<<(std::ostream& os, const Timestamp& ts) {
         auto duration = ts.curr_time_.time_since_epoch();
         auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-        os << "Timestamp(" << millis << " ms since epoch)";
+        os << millis;
         return os;
     }
 };
