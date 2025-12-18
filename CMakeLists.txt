@@ -1,11 +1,17 @@
 cmake_minimum_required(VERSION 3.13)
 
-set(CMAKE_CUDA_ARCHITECTURES "native")
-
-project(signal-analysis LANGUAGES CXX CUDA)
+project(signal-analysis LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CUDA_STANDARD 17)
+
+if (CMAKE_CUDA_COMPILER)
+    message(STATUS "CUDA enabled..")
+    enable_language(CUDA)
+    set(CMAKE_CUDA_ARCHITECTURES "native")
+    set(CMAKE_CUDA_STANDARD 17)
+else()
+    message(STATUS "CUDA not available..")
+endif()
 
 # add_subdirectory(core)
 # add_subdirectory(utils)
