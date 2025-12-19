@@ -1,6 +1,8 @@
 #include <iostream>
 
 #include "Transmitter.hpp"
+#include "Logger.hpp"
+#include "DataWriter.hpp"
 
 int main() {
     std::cout << "Program Starts.." << std::endl;
@@ -13,9 +15,18 @@ int main() {
     TxConfig tx_config;
     Transmitter tx(tx_config);
 
-    for (uint64_t iter = 0; iter < 3; iter++) {
+    Logger logger("sim.log");
+    logger.log(Logger::Level::INFO, "Transmitter initialized.");
+
+    DataWriter writer("dumps", "basic_tx");
+    logger.log(Logger::Level::INFO, "DataWriter initialized at " + writer.run_dir().string());
+
+    for (uint64_t iter = 0; iter < 20; iter++) {
         Frame f = tx.next_frame();
-        f.dump();
+
+        f.dump(logger.stream(Logger::Level::INFO), 5);
+        writer.write_frame("tx", f);
+
     }
 
     std::cout << "..Finished" << std::endl;

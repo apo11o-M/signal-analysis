@@ -6,6 +6,8 @@
 #include <cmath>
 #include <complex>
 
+#define M_PI 3.14159265358979323846
+
 struct TxConfig {
     // fs
     double sample_rate_hz = 1.0e6;
@@ -28,7 +30,7 @@ public:
 
     // Generate a new frame
     Frame next_frame() {
-        Frame f;
+        Frame f(config_.frame_len);
         f.frame_id = frame_index_;
         f.timestamp_ = Timestamp();
         
