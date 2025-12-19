@@ -1,11 +1,12 @@
 #include <iostream>
 
 #include "Transmitter.hpp"
+#include "Receiver.hpp"
 #include "Logger.hpp"
 #include "DataWriter.hpp"
 
 int main() {
-    std::cout << "Program Starts.." << std::endl;
+    std::cout << "Signal analysis executable starting.." << std::endl;
 
     // 1. parse config file
     // 2. create transmitter, impairments, and receiver objects
@@ -29,5 +30,5 @@ int main() {
 
     }
 
-    std::cout << "..Finished" << std::endl;
+    std::cout << "Signal analysis executable finished" << std::endl;
 }

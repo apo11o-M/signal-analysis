@@ -42,6 +42,7 @@
 
 # directories
 build/
+dumps/
 release/
 .vscode/
 .vs/

@@ -1,5 +1,5 @@
 
-set(CXX_SOURCES src/tx_main.cpp)
+set(CXX_SOURCES )
 
 add_library(signal-tx STATIC ${CXX_SOURCES})
 

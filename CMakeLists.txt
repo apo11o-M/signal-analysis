@@ -23,4 +23,5 @@ target_include_directories(signal-analysis PUBLIC
     core/include
     utils/include
     tx/include
+    rx/include
 )
