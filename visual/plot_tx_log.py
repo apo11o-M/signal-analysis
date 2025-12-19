@@ -1,168 +1,138 @@
-import re
+# python plot_tx_log.py --run ..\build\dumps\run_basic_tx_20251219_025903\ --stage tx --frame 0 --fs 1e7 --center
+# 
+# plot_spectrogram.py
+import argparse
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 
-# -------- Parsing --------
-FRAME_RE = re.compile(r"Frame ID:\s*(\d+)")
-SIZE_RE  = re.compile(r"Buffer:\s*,\s*size:\s*(\d+)")
-# Matches "(0.5,0)" "(0.499013,0.0313953)" including scientific notation
-PAIR_RE  = re.compile(r"\(\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s*,\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s*\)")
+def load_frame(run_dir: Path, stage: str, frame_id: int | None):
+    idx_path = run_dir / "index.csv"
+    if not idx_path.exists():
+        raise FileNotFoundError(f"index.csv not found in {run_dir}")
 
-def parse_log(path: str):
-    """
-    Returns:
-      frames: list of dict {id: int, size: int, x: complex np.ndarray}
-    """
-    frames = []
-    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-        lines = f.readlines()
+    idx = pd.read_csv(idx_path)
 
-    i = 0
-    while i < len(lines):
-        m_id = FRAME_RE.search(lines[i])
-        if not m_id:
-            i += 1
-            continue
+    # Normalize stage matching (your CSV uses "tx", "imp", "rx")
+    rows = idx[idx["stage"] == stage].copy()
+    if rows.empty:
+        raise ValueError(f"No entries for stage='{stage}' in {idx_path}")
 
-        frame_id = int(m_id.group(1))
-
-        # Find size line within the next few lines
-        size = None
-        j = i + 1
-        while j < len(lines) and j < i + 8:
-            m_size = SIZE_RE.search(lines[j])
-            if m_size:
-                size = int(m_size.group(1))
-                break
-            j += 1
-        if size is None:
-            # No buffer size found; skip this frame
-            i += 1
-            continue
-
-        # Find the line (or lines) that contain the bracketed buffer
-        # We'll collect until we see a closing ']'
-        buf_text = ""
-        k = j + 1
-        while k < len(lines):
-            buf_text += lines[k].strip() + " "
-            if "]" in lines[k]:
-                break
-            k += 1
-
-        pairs = PAIR_RE.findall(buf_text)
-        x = np.array([float(a) + 1j * float(b) for (a, b) in pairs], dtype=np.complex64)
-
-        # If log truncates with "...", x may be shorter than 'size'
-        # We'll keep what we have but warn.
-        if x.size != size:
-            print(f"[warn] Frame {frame_id}: parsed {x.size} samples, header says {size}. "
-                  f"(Likely truncated log with '...')")
-
-        frames.append({"id": frame_id, "size": size, "x": x})
-        i = k + 1
-
-    return frames
-
-
-# -------- STFT / Spectrogram --------
-def stft(x: np.ndarray, n_fft: int, hop: int, window: str = "hann"):
-    if x.size < n_fft:
-        return np.empty((0, n_fft), dtype=np.complex64)
-
-    if window == "hann":
-        w = np.hanning(n_fft).astype(np.float32)
+    if frame_id is None:
+        # default: first available
+        row = rows.iloc[0]
     else:
-        w = np.ones(n_fft, dtype=np.float32)
+        rows2 = rows[rows["frame_id"] == frame_id]
+        if rows2.empty:
+            available = rows["frame_id"].head(10).tolist()
+            raise ValueError(
+                f"frame_id={frame_id} not found for stage='{stage}'. "
+                f"Example available: {available} ..."
+            )
+        row = rows2.iloc[0]
 
-    n_frames = 1 + (x.size - n_fft) // hop
-    X = np.empty((n_frames, n_fft), dtype=np.complex64)
+    rel_path = Path(row["rel_path"])
+    bin_path = run_dir / rel_path
+    if not bin_path.exists():
+        raise FileNotFoundError(f"Binary file missing: {bin_path}")
 
-    for i in range(n_frames):
-        start = i * hop
-        seg = x[start:start + n_fft] * w
-        X[i, :] = np.fft.fftshift(np.fft.fft(seg, n=n_fft))
-
-    return X
+    x = np.fromfile(bin_path, dtype=np.complex64)
+    return x, bin_path
 
 
-def plot_spectrogram(frames, fs_hz: float, n_fft=1024, hop=256, eps=1e-12):
-    # Concatenate frames into one long stream (simplest)
-    x_all = np.concatenate([fr["x"] for fr in frames if fr["x"].size > 0])
-    if x_all.size < n_fft:
-        raise ValueError("Not enough samples to compute spectrogram. Increase log length or reduce n_fft.")
+def plot_spectrogram(x: np.ndarray, fs: float, nfft: int, noverlap: int, title: str,
+                     center: bool, db: bool, max_frames: int | None):
+    # Optionally truncate for speed
+    if max_frames is not None and x.size > max_frames:
+        x = x[:max_frames]
 
-    X = stft(x_all, n_fft=n_fft, hop=hop)
-    S = 20.0 * np.log10(np.abs(X) + eps)  # dB magnitude
+    # Optional: center frequency at 0 Hz for complex baseband plots
+    # For complex data, plt.specgram will show 0..fs unless we shift ourselves.
+    # We'll compute via FFT bins manually so we can center cleanly.
+    step = nfft - noverlap
+    if step <= 0:
+        raise ValueError("noverlap must be < nfft")
 
-    # Axes
-    freqs = np.fft.fftshift(np.fft.fftfreq(n_fft, d=1.0/fs_hz))
-    times = np.arange(S.shape[0]) * (hop / fs_hz)
+    nseg = 1 + max(0, (len(x) - nfft) // step)
+    if nseg <= 0:
+        raise ValueError("Signal too short for chosen nfft/noverlap")
 
+    # Window
+    win = np.hanning(nfft).astype(np.float32)
+    win_norm = np.sum(win**2)
+
+    # Compute STFT power
+    S = np.empty((nfft, nseg), dtype=np.float32)
+    for k in range(nseg):
+        start = k * step
+        seg = x[start:start+nfft]
+        segw = seg * win
+        X = np.fft.fft(segw, n=nfft)
+        P = (np.abs(X)**2) / (win_norm if win_norm != 0 else 1.0)
+        S[:, k] = P.astype(np.float32)
+
+    if center:
+        S = np.fft.fftshift(S, axes=0)
+        freqs = np.fft.fftshift(np.fft.fftfreq(nfft, d=1.0/fs))
+    else:
+        freqs = np.fft.fftfreq(nfft, d=1.0/fs)
+
+    times = (np.arange(nseg) * step) / fs
+
+    if db:
+        # avoid log(0)
+        S_plot = 10.0 * np.log10(S + 1e-12)
+        zlabel = "Power (dB)"
+    else:
+        S_plot = S
+        zlabel = "Power"
+
+    # Plot
     plt.figure()
-    plt.imshow(
-        S.T,
-        origin="lower",
-        aspect="auto",
-        extent=[times[0], times[-1], freqs[0], freqs[-1]],
-    )
+    extent = [times[0], times[-1], freqs[0], freqs[-1]]
+    # imshow expects [y,x]
+    plt.imshow(S_plot, aspect="auto", origin="lower", extent=extent)
     plt.xlabel("Time (s)")
     plt.ylabel("Frequency (Hz)")
-    plt.title("Spectrogram (magnitude, dB)")
-    plt.colorbar(label="dB")
+    plt.title(title)
+    plt.colorbar(label=zlabel)
     plt.tight_layout()
 
 
-def plot_3d_waterfall(frames, fs_hz: float, n_fft=1024, hop=1024, eps=1e-12, max_slices=80):
-    # 3D plot: each time-slice is one FFT magnitude curve
-    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+def main():
+    ap = argparse.ArgumentParser(description="Plot spectrogram from DataWriter frame dumps (.c64).")
+    ap.add_argument("--run", required=True, help="Run directory created by DataWriter (contains index.csv)")
+    ap.add_argument("--stage", default="tx", choices=["tx", "imp", "rx"], help="Pipeline stage")
+    ap.add_argument("--frame", type=int, default=None, help="Frame id to load (default: first)")
+    ap.add_argument("--fs", type=float, required=True, help="Sample rate in Hz")
+    ap.add_argument("--nfft", type=int, default=2048, help="FFT size per segment")
+    ap.add_argument("--noverlap", type=int, default=1536, help="Overlap samples (must be < nfft)")
+    ap.add_argument("--center", action="store_true", help="Center frequency axis around 0 Hz")
+    ap.add_argument("--linear", action="store_true", help="Use linear power instead of dB")
+    ap.add_argument("--max_samples", type=int, default=None, help="Truncate to N samples for speed")
 
-    x_all = np.concatenate([fr["x"] for fr in frames if fr["x"].size > 0])
-    X = stft(x_all, n_fft=n_fft, hop=hop)
-    if X.shape[0] == 0:
-        raise ValueError("Not enough samples for 3D plot.")
-
-    # optionally downsample time slices so it doesn't become unreadable
-    idx = np.linspace(0, X.shape[0]-1, min(max_slices, X.shape[0])).astype(int)
-    Xs = X[idx, :]
-
-    freqs = np.fft.fftshift(np.fft.fftfreq(n_fft, d=1.0/fs_hz))
-    times = idx * (hop / fs_hz)
-
-    Z = 20.0 * np.log10(np.abs(Xs) + eps)  # [time_slices, freq_bins]
-
-    F, T = np.meshgrid(freqs, times)
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection="3d")
-    ax.plot_surface(F, T, Z, linewidth=0, antialiased=True)
-    ax.set_xlabel("Frequency (Hz)")
-    ax.set_ylabel("Time (s)")
-    ax.set_zlabel("Magnitude (dB)")
-    ax.set_title("3D Waterfall (STFT magnitude)")
-    plt.tight_layout()
-
-
-# -------- Main --------
-if __name__ == "__main__":
-    import argparse
-
-    ap = argparse.ArgumentParser()
-    ap.add_argument("logfile", help="Path to transmitter log file")
-    ap.add_argument("--fs", type=float, required=True, help="Sample rate (Hz), e.g. 1e6")
-    ap.add_argument("--fft", type=int, default=1024, help="FFT size")
-    ap.add_argument("--hop", type=int, default=256, help="Hop size for spectrogram")
-    ap.add_argument("--plot3d", action="store_true", help="Also generate 3D waterfall plot")
     args = ap.parse_args()
 
-    frames = parse_log(args.logfile)
-    if not frames:
-        raise SystemExit("No frames parsed. Check log format / file path.")
+    run_dir = Path(args.run)
+    x, path = load_frame(run_dir, args.stage, args.frame)
 
-    plot_spectrogram(frames, fs_hz=args.fs, n_fft=args.fft, hop=args.hop)
-    if args.plot3d:
-        # For 3D, use bigger hop so slices are distinct
-        plot_3d_waterfall(frames, fs_hz=args.fs, n_fft=args.fft, hop=args.fft)
+    title = f"Spectrogram: {args.stage}, file={path.name}, N={x.size}, fs={args.fs:g} Hz"
+    plot_spectrogram(
+        x=x,
+        fs=args.fs,
+        nfft=args.nfft,
+        noverlap=args.noverlap,
+        title=title,
+        center=args.center,
+        db=(not args.linear),
+        max_frames=args.max_samples,
+    )
 
     plt.show()
+
+
+if __name__ == "__main__":
+    main()
