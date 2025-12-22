@@ -9,7 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-def load_frame(run_dir: Path, stage: str, frame_id: int | None):
+def load_frame(run_dir: Path, stage: str, frame_id: int):
     idx_path = run_dir / "index.csv"
     if not idx_path.exists():
         raise FileNotFoundError(f"index.csv not found in {run_dir}")
@@ -44,7 +44,7 @@ def load_frame(run_dir: Path, stage: str, frame_id: int | None):
 
 
 def plot_spectrogram(x: np.ndarray, fs: float, nfft: int, noverlap: int, title: str,
-                     center: bool, db: bool, max_frames: int | None):
+                     center: bool, db: bool, max_frames: int):
     # Optionally truncate for speed
     if max_frames is not None and x.size > max_frames:
         x = x[:max_frames]

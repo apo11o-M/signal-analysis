@@ -39,8 +39,12 @@ def main():
         # get latest dump directory
         dump_dir = sorted((CURR_DIR / "dumps").iterdir())[-1]
         
-        run(["python", str(ROOT_DIR / "visual" / "plot_tx_log.py"), "--run", \
-            str(dump_dir), "--stage", "tx", "--frame", "0", "--fs", "1e7", "--center"])
+        if IS_WINDOWS:
+            run(["python", str(ROOT_DIR / "visual" / "plot_tx_log.py"), "--run", \
+                str(dump_dir), "--stage", "tx", "--frame", "0", "--fs", "1e7", "--center"])
+        else:
+            run(["python3", str(ROOT_DIR / "visual" / "plot_tx_log.py"), "--run", \
+                str(dump_dir), "--stage", "tx", "--frame", "0", "--fs", "1e7", "--center"])
 
     print("=====================================================================")    
     print("[INFO] Signal analysis runner finished")
