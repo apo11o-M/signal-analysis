@@ -16,6 +16,9 @@ int main() {
     TxConfig tx_config;
     Transmitter tx(tx_config);
 
+    RxConfig rx_config;
+    Receiver rx(rx_config);
+
     Logger logger("sim.log");
     logger.log(Logger::Level::INFO, "Transmitter initialized.");
 
@@ -28,6 +31,8 @@ int main() {
         f.dump(logger.stream(Logger::Level::INFO), 5);
         writer.write_frame("tx", f);
 
+        RxResults rx_res = rx.process_frame(f);
+        
     }
 
     std::cout << "Signal analysis executable finished" << std::endl;
