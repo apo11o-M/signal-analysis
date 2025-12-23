@@ -27,13 +27,15 @@ int main() {
     Channel channel(rx_config.sample_rate_hz, logger);
     channel.add<GainImpairment>(1.0f);
     channel.add<CFOImpairment>(250.0, 0.0);
+    channel.add<PhaseOffsetImpairment>(0.3);
+    channel.add<TimingOffsetImpairment>(7, TimingOffsetImpairment::Mode::Circular);
     channel.add<AWGNImpairment>(20.0);
     logger.log(Logger::Level::INFO, "Channel initialized.");
 
     DataWriter writer("dumps", "basic_tx");
     logger.log(Logger::Level::INFO, "DataWriter initialized at " + writer.run_dir().string());
 
-    for (uint64_t iter = 0; iter < 20; iter++) {
+    for (uint64_t iter = 0; iter < 100; iter++) {
         Frame f = tx.next_frame();
 
         f.dump(logger.stream(Logger::Level::INFO), 5);

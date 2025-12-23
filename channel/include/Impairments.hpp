@@ -42,7 +42,9 @@ private:
 
 // Carrier frequency offset
 // Tx and Rx oscillators are never perfectly aligned, even a 1ppm error at 1 GHz
-// gives a 1 kHz offset. 
+// gives a 1 kHz offset.
+// We should see a constant phase rotation and the phase difference estimator
+// will see an offset of the estimated vs actual frequency
 // y[n] = x[n] * exp(j * (phase0 + n * w)), w = 2 * pi * df / fs
 // phase accumulator is kept across frames (stateful)
 class CFOImpairment : public Impairment {
@@ -114,4 +116,75 @@ private:
     double snr_db_;
     std::mt19937_64 rng_;
     std::normal_distribution<double> norm_;
+};
+
+
+// Constant phase offset impairment
+// This happens when the receiver doesn't know the absolute RF phase when it starts sampling
+// Frequency estimate should still work, but coherent demodulation will be affected
+class PhaseOffsetImpairment : public Impairment {
+public:
+    PhaseOffsetImpairment(double fs, double phase_rad) : phase_rad_(phase_rad) {}
+
+    const char* name() const override { return "Phase Offset"; }
+
+    void apply(Frame& f) override {
+        const float c = static_cast<float>(std::cos(phase_rad_));
+        const float s = static_cast<float>(std::sin(phase_rad_));
+        const std::complex<float> rot(c, s);
+
+        auto* x = f.data_.h_data();
+        const std::size_t n = f.data_.size();
+        for (std::size_t i = 0; i < n; i++) {
+            x[i] *= rot;
+        }
+    }
+
+private:
+    double phase_rad_;
+};
+
+
+// Integer timing offset (either circular or zero pad)
+// This happens when the receiver doesn't start sampling exactly at the frame boundary
+// The phase estimator should still work, but symbol aligned systems will break
+// and preambles become necessary
+class TimingOffsetImpairment : public Impairment {
+public:
+    enum class Mode { Circular, ZeroPad };
+
+    TimingOffsetImpairment(double fs, int sample_offset, Mode mode = Mode::Circular)
+        : offset_(sample_offset), mode_(mode) {}
+
+    const char* name() const override { return "Timing Offset Impairment"; }
+
+    void apply(Frame& f) override {
+        const std::size_t n = f.data_.size();
+        if (n == 0 || offset_ == 0) return;
+
+        std::vector<std::complex<float>> temp(n);
+        const auto* x = f.data_.h_data();
+
+        if (mode_ == Mode::Circular) {
+            // y[i] = x[i - offset]
+            for (std::size_t i = 0; i < n; i++) {
+                const long long src = static_cast<long long>(i) - static_cast<long long>(offset_);
+                temp[i] = x[wrap_index(src, n)];
+            }
+        }
+        else {
+            for (std::size_t i = 0; i < n; i++) {
+                const long long src = static_cast<long long>(i) - static_cast<long long>(offset_);
+                if (src < 0 || src >= static_cast<long long>(n)) temp[i] = { 0.0f, 0.0f };
+                else temp[i] = x[static_cast<long long>(src)];
+            }
+        }
+
+        auto* y = f.data_.h_data();
+        std::copy(temp.begin(), temp.end(), y);
+    }
+
+private:
+    int offset_;
+    Mode mode_;
 };
