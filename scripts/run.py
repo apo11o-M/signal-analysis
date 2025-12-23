@@ -27,6 +27,7 @@ def main():
     
     if args.build:
         BUILD_DIR.mkdir(exist_ok=True)
+        run(["cmake", "-S", str(ROOT_DIR), "-B", str(BUILD_DIR)])
         run(["cmake", "--build", str(BUILD_DIR)])
 
     if args.run:
