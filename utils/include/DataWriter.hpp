@@ -66,7 +66,8 @@ public:
             << stage << ","
             << frame.frame_id << ","
             << rel_path.generic_string() << ","
-            << frame.data_.size()
+            << frame.data_.size() << ","
+            << frame.timestamp_
             << "\n";
     }
 
@@ -77,7 +78,7 @@ public:
     void write_rx_results(const RxResults& results) {
         // Ensure header is written once
         if (!rx_results_header_written_) {
-            rx_results_csv_ << RxResults::csv_header() << "\n";
+            rx_results_csv_ << RxResults::csv_header();
             rx_results_header_written_ = true;
         }
         rx_results_csv_ << results.csv_row();
@@ -93,7 +94,7 @@ private:
         }
 
         // Manifest describes *IQ frame files* written by write_iq_frame_binary()
-        frame_manifest_csv_ << "stage,frame_id,rel_path,elem_count\n";
+        frame_manifest_csv_ << "stage,frame_id,rel_path,elem_count,timestamp\n";
     }
 
     // helper to open rx_results.csv
