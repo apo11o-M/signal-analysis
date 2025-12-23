@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 
 
 def load_frame(run_dir: Path, stage: str, frame_id: int):
-    idx_path = run_dir / "index.csv"
+    idx_path = run_dir / "frame_manifest.csv"
     if not idx_path.exists():
-        raise FileNotFoundError(f"index.csv not found in {run_dir}")
+        raise FileNotFoundError(f"frame_manifest.csv not found in {run_dir}")
 
     idx = pd.read_csv(idx_path)
 
@@ -104,7 +104,7 @@ def plot_spectrogram(x: np.ndarray, fs: float, nfft: int, noverlap: int, title: 
 
 def main():
     ap = argparse.ArgumentParser(description="Plot spectrogram from DataWriter frame dumps (.c64).")
-    ap.add_argument("--run", required=True, help="Run directory created by DataWriter (contains index.csv)")
+    ap.add_argument("--run", required=True, help="Run directory created by DataWriter (contains frame_manifest.csv)")
     ap.add_argument("--stage", default="tx", choices=["tx", "imp", "rx"], help="Pipeline stage")
     ap.add_argument("--frame", type=int, default=None, help="Frame id to load (default: first)")
     ap.add_argument("--fs", type=float, required=True, help="Sample rate in Hz")

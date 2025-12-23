@@ -34,6 +34,27 @@ struct RxResults {
 
     // estimated SNR in dB
     float snr_db = -std::numeric_limits<float>::infinity();
+
+    static std::string csv_header() {
+        return "frame_id,timestamp,est_freq_hz,est_dphi_rad,avg_power,mean_re,mean_im,var_re,var_im,noise_power,snr_db,detected\n";
+    }
+
+    std::string csv_row() const {
+        std::ostringstream oss;
+        oss << frame_id << "," 
+            << timestamp << ","
+            << est_freq_hz << ","
+            << est_dphi_rad << ","
+            << avg_power << ","
+            << mean_re << ","
+            << mean_im << ","
+            << var_re << ","
+            << var_im << ","
+            << noise_power << ","
+            << snr_db << ","
+            << (detected ? "1" : "0") << "\n";
+        return oss.str();
+    }
 };
 
 class Receiver {

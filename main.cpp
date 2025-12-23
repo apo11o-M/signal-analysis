@@ -29,9 +29,10 @@ int main() {
         Frame f = tx.next_frame();
 
         f.dump(logger.stream(Logger::Level::INFO), 5);
-        writer.write_frame("tx", f);
+        writer.write_iq_frame_binary("tx", f);
 
         RxResults rx_res = rx.process_frame(f);
+        writer.write_rx_results(rx_res);
         
     }
 
