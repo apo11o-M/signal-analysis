@@ -42,10 +42,10 @@ def main():
         
         if IS_WINDOWS:
             run(["python", str(ROOT_DIR / "visual" / "plot_simulation.py"), "--run", \
-                str(dump_dir), "--stage", "tx", "--fs", "1e7"])
+                str(dump_dir), "--stage", "imp", "--fs", "1e7", "--overlay-rx"])
         else:
             run(["python3", str(ROOT_DIR / "visual" / "plot_simulation.py"), "--run", \
-                str(dump_dir), "--stage", "tx", "--fs", "1e7"])
+                str(dump_dir), "--stage", "imp", "--fs", "1e7", "--overlay-rx"])
 
     print("=====================================================================")    
     print("[INFO] Signal analysis runner finished")

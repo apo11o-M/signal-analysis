@@ -20,6 +20,7 @@ endif()
 add_executable(signal-analysis main.cpp)
 
 target_include_directories(signal-analysis PUBLIC 
+    channel/include
     core/include
     utils/include
     tx/include

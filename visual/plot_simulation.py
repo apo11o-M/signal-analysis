@@ -105,8 +105,8 @@ def plot_rx(ax, rx_df: Optional[pd.DataFrame], fs: float, frame_len: int):
 
     if "est_freq_hz" in rx_df.columns:
         est_f = rx_df["est_freq_hz"].to_numpy(dtype=float)
-        ax.plot(t, est_f)
-        ax.set_ylabel("est_freq (Hz)")
+        ax.plot(t, est_f, "m")
+        ax.set_ylabel("est_freq (Hz) (magenta)")
     else:
         ax.text(0.5, 0.5, "rx_results.csv missing est_freq_hz", ha="center", va="center", transform=ax.transAxes)
 
@@ -115,8 +115,8 @@ def plot_rx(ax, rx_df: Optional[pd.DataFrame], fs: float, frame_len: int):
     # optional: snr on right axis
     if "snr_db" in rx_df.columns:
         ax2 = ax.twinx()
-        ax2.plot(t, rx_df["snr_db"].to_numpy(dtype=float))
-        ax2.set_ylabel("snr_db")
+        ax2.plot(t, rx_df["snr_db"].to_numpy(dtype=float), 'g')
+        ax2.set_ylabel("snr_db (green)")
 
     # optional: detected markers
     if "detected" in rx_df.columns and "est_freq_hz" in rx_df.columns:
@@ -143,7 +143,7 @@ def overlay_est_freq(ax_spec, rx_df: Optional[pd.DataFrame], fs: float, frame_le
     if not center:
         f = np.mod(f, fs)
 
-    ax_spec.plot(t, f, linewidth=1.5)
+    ax_spec.plot(t, f, 'w', linestyle='dotted', linewidth=1.5)
 
 
 def build_argparser() -> argparse.ArgumentParser:
