@@ -46,6 +46,8 @@ dumps/
 release/
 .vscode/
 .vs/
+__pycache__/
+
 
 # miscallaneous
 .DS_Store

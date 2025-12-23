@@ -41,10 +41,10 @@ def main():
         dump_dir = sorted((CURR_DIR / "dumps").iterdir())[-1]
         
         if IS_WINDOWS:
-            run(["python", str(ROOT_DIR / "visual" / "plot_tx_log.py"), "--run", \
+            run(["python", str(ROOT_DIR / "visual" / "plot_simulation.py"), "--run", \
                 str(dump_dir), "--stage", "tx", "--fs", "1e7"])
         else:
-            run(["python3", str(ROOT_DIR / "visual" / "plot_tx_log.py"), "--run", \
+            run(["python3", str(ROOT_DIR / "visual" / "plot_simulation.py"), "--run", \
                 str(dump_dir), "--stage", "tx", "--fs", "1e7"])
 
     print("=====================================================================")    
