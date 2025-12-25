@@ -38,7 +38,9 @@ public:
             f.data_[i] = config_.amplitude * cfloat(re, im);
             
             phase_ += dphi_;
-            if (phase_ > 2.0 * M_PI) phase_ -= (2.0 * M_PI);
+
+            phase_ = std::fmod(phase_, 2.0 * M_PI);
+            if (phase_ < 0) phase_ += 2.0 * M_PI;
         }
         frame_index_++;
         return f;

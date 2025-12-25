@@ -4,9 +4,12 @@
 // #include "Receiver.hpp"
 #include "TransmitterSingleTone.hpp"
 #include "ReceiverSingleTone.hpp"
+#include "TransmitterChirp.hpp"
 #include "Channel.hpp"
 #include "Logger.hpp"
 #include "DataWriter.hpp"
+
+#define FRAME_COUNT 100
 
 int main() {
     std::cout << "Signal analysis executable starting.." << std::endl;
@@ -18,8 +21,10 @@ int main() {
 
     Logger logger("sim.log");
 
-    TxConfigSingleTone tx_config;
-    std::unique_ptr<Transmitter> tx_ptr = std::make_unique<TransmitterSingleTone>(tx_config);
+    // TxConfigSingleTone tx_config;
+    // std::unique_ptr<Transmitter> tx_ptr = std::make_unique<TransmitterSingleTone>(tx_config);
+    TxConfigChirp tx_config;
+    std::unique_ptr<Transmitter> tx_ptr = std::make_unique<TransmitterChirp>(tx_config, FRAME_COUNT);
     logger.log(Logger::Level::INFO, "Transmitter initialized.");
 
     RxConfigSingleTone rx_config;
@@ -37,7 +42,7 @@ int main() {
     DataWriter writer("dumps", "basic_tx");
     logger.log(Logger::Level::INFO, "DataWriter initialized at " + writer.run_dir().string());
 
-    for (uint64_t iter = 0; iter < 100; iter++) {
+    for (uint64_t iter = 0; iter < FRAME_COUNT; iter++) {
         Frame f = tx_ptr->next_frame();
 
         f.dump(logger.stream(Logger::Level::INFO), 5);

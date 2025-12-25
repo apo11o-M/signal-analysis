@@ -85,6 +85,7 @@ def plot_spectrogram(ax, x: np.ndarray, cfg: SpecConfig, title: str):
         zlabel = "Power"
 
     extent = [times[0], times[-1], freqs[0], freqs[-1]]
+    print(f"Spectrogram extent: {extent}")
     im = ax.imshow(S_plot, aspect="auto", origin="lower", extent=extent)
     ax.set_ylabel("Frequency (Hz)")
     ax.set_title(title)
@@ -140,8 +141,8 @@ def overlay_est_freq(ax_spec, rx_df: Optional[pd.DataFrame], fs: float, frame_le
     f = rx_df["est_freq_hz"].to_numpy(dtype=float)
 
     # If the spectrogram is not centered, map signed freq into [0, fs)
-    if not center:
-        f = np.mod(f, fs)
+    # if not center:
+    #     f = np.mod(f, fs)
 
     ax_spec.plot(t, f, 'w', linestyle='dotted', linewidth=1.5)
 
