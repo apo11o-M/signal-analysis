@@ -75,13 +75,13 @@ public:
     // RxResults itself owns the CSV schema via:
     //   - RxResults::csv_header()
     //   - RxResults::csv_row()
-    void write_rx_results(const RxResults& results) {
+    void write_rx_results(std::unique_ptr<RxResults>& results) {
         // Ensure header is written once
         if (!rx_results_header_written_) {
-            rx_results_csv_ << RxResults::csv_header();
+            rx_results_csv_ << results->csv_header();
             rx_results_header_written_ = true;
         }
-        rx_results_csv_ << results.csv_row();
+        rx_results_csv_ << results->csv_row();
     }
 
 private:

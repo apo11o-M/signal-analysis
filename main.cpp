@@ -1,7 +1,9 @@
 #include <iostream>
 
-#include "Transmitter.hpp"
-#include "Receiver.hpp"
+// #include "Transmitter.hpp"
+// #include "Receiver.hpp"
+#include "TransmitterSingleTone.hpp"
+#include "ReceiverSingleTone.hpp"
 #include "Channel.hpp"
 #include "Logger.hpp"
 #include "DataWriter.hpp"
@@ -16,15 +18,15 @@ int main() {
 
     Logger logger("sim.log");
 
-    TxConfig tx_config;
-    Transmitter tx(tx_config);
+    TxConfigSingleTone tx_config;
+    std::unique_ptr<Transmitter> tx_ptr = std::make_unique<TransmitterSingleTone>(tx_config);
     logger.log(Logger::Level::INFO, "Transmitter initialized.");
 
-    RxConfig rx_config;
-    Receiver rx(rx_config);
+    RxConfigSingleTone rx_config;
+    std::unique_ptr<Receiver> rx_ptr = std::make_unique<ReceiverSingleTone>(rx_config);
     logger.log(Logger::Level::INFO, "Receiver initialized.");
 
-    Channel channel(rx_config.sample_rate_hz, logger);
+    Channel channel(rx_config.common.sample_rate_hz, logger);
     channel.add<GainImpairment>(1.0f);
     channel.add<CFOImpairment>(250.0, 0.0);
     channel.add<PhaseOffsetImpairment>(0.3);
@@ -36,7 +38,7 @@ int main() {
     logger.log(Logger::Level::INFO, "DataWriter initialized at " + writer.run_dir().string());
 
     for (uint64_t iter = 0; iter < 100; iter++) {
-        Frame f = tx.next_frame();
+        Frame f = tx_ptr->next_frame();
 
         f.dump(logger.stream(Logger::Level::INFO), 5);
         writer.write_iq_frame_binary("tx", f);
@@ -45,7 +47,7 @@ int main() {
         f.dump(logger.stream(Logger::Level::INFO), 5);
         writer.write_iq_frame_binary("imp", f);
 
-        RxResults rx_res = rx.process_frame(f);
+        std::unique_ptr<RxResults> rx_res = rx_ptr->process_frame(f);
         writer.write_rx_results(rx_res);
 
     }

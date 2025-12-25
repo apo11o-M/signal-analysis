@@ -8,48 +8,25 @@
 
 #define M_PI 3.14159265358979323846
 
-struct TxConfig {
+struct TxConfigCommon {
     // fs
     double sample_rate_hz = 1.0e6;
-
-    // f0, baseband
-    double tone_freq_hz = 10.0e3;
-    float amplitude = 0.5f;
-
     // samples per frame
     std::size_t frame_len = 4096;
 };
 
 class Transmitter {
 public:
-    using cfloat = std::complex<float>;
-    Transmitter(const TxConfig& config) : config_(config) {
-        // phase increment per sample: dphi = 2 * pi * f0 / fs;
-        dphi_ = 2.0 * M_PI * (config_.tone_freq_hz / config_.sample_rate_hz);
-    };
+    Transmitter() = default;
+    Transmitter(const TxConfigCommon& config) : common_config_(config) {};
+
+    virtual ~Transmitter() = default;
 
     // Generate a new frame
-    Frame next_frame() {
-        Frame f(config_.frame_len);
-        f.frame_id = frame_index_;
-        f.timestamp_ = Timestamp();
-        
-        for (std::size_t i = 0; i < config_.frame_len; i++) {
-            float re = static_cast<float>(std::cos(phase_));
-            float im = static_cast<float>(std::sin(phase_));
-            f.data_[i] = config_.amplitude * cfloat(re, im);
-            
-            phase_ += dphi_;
-            if (phase_ > 2.0 * M_PI) phase_ -= (2.0 * M_PI);
-        }
-        frame_index_++;
-        return f;
-    };
+    virtual Frame next_frame() = 0;
 
-private:
-    TxConfig config_;
-    double dphi_ = 0.0;
-    double phase_ = 0.0;
+protected:
+    TxConfigCommon common_config_;
     std::uint64_t frame_index_ = 0;
 
 };
