@@ -84,6 +84,8 @@ public:
         rx_results_csv_ << results->csv_row();
     }
 
+    void write_sim_config(const std::string& config_str) {}
+
 private:
     // helper to open CSV files
     void open_frame_manifest_csv_() {

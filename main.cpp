@@ -5,6 +5,8 @@
 #include "TransmitterSingleTone.hpp"
 #include "ReceiverSingleTone.hpp"
 #include "TransmitterChirp.hpp"
+#include "ReceiverChirp.hpp"
+
 #include "Channel.hpp"
 #include "Logger.hpp"
 #include "DataWriter.hpp"
@@ -24,11 +26,13 @@ int main() {
     // TxConfigSingleTone tx_config;
     // std::unique_ptr<Transmitter> tx_ptr = std::make_unique<TransmitterSingleTone>(tx_config);
     TxConfigChirp tx_config;
-    std::unique_ptr<Transmitter> tx_ptr = std::make_unique<TransmitterChirp>(tx_config, FRAME_COUNT);
+    std::unique_ptr<Transmitter> tx_ptr = std::make_unique<TransmitterChirp>(tx_config);
     logger.log(Logger::Level::INFO, "Transmitter initialized.");
 
-    RxConfigSingleTone rx_config;
-    std::unique_ptr<Receiver> rx_ptr = std::make_unique<ReceiverSingleTone>(rx_config);
+    // RxConfigSingleTone rx_config;
+    // std::unique_ptr<Receiver> rx_ptr = std::make_unique<ReceiverSingleTone>(rx_config);
+    RxConfigChirp rx_config;
+    std::unique_ptr<Receiver> rx_ptr = std::make_unique<ReceiverChirp>(rx_config);
     logger.log(Logger::Level::INFO, "Receiver initialized.");
 
     Channel channel(rx_config.common.sample_rate_hz, logger);
@@ -48,9 +52,9 @@ int main() {
         f.dump(logger.stream(Logger::Level::INFO), 5);
         writer.write_iq_frame_binary("tx", f);
 
-        channel.apply(f);
-        f.dump(logger.stream(Logger::Level::INFO), 5);
-        writer.write_iq_frame_binary("imp", f);
+        // channel.apply(f);
+        // f.dump(logger.stream(Logger::Level::INFO), 5);
+        // writer.write_iq_frame_binary("imp", f);
 
         std::unique_ptr<RxResults> rx_res = rx_ptr->process_frame(f);
         writer.write_rx_results(rx_res);

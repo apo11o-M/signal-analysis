@@ -91,7 +91,7 @@ def plot_spectrogram(ax, x: np.ndarray, cfg: SpecConfig, title: str):
     ax.set_title(title)
     return im, zlabel, times
 
-
+# SINGLE TONE RECEIVER PLOTTING
 def plot_rx(ax, rx_df: Optional[pd.DataFrame], fs: float, frame_len: int):
     """
     Plot RX estimated frequency and optional SNR/detection markers.
@@ -127,7 +127,7 @@ def plot_rx(ax, rx_df: Optional[pd.DataFrame], fs: float, frame_len: int):
             y0 = np.nanmin(est_f)
             ax.scatter(det_t, np.full_like(det_t, y0), marker="|")
 
-
+# SINGLE TONE RECEIVER PLOTTING
 def overlay_est_freq(ax_spec, rx_df: Optional[pd.DataFrame], fs: float, frame_len: int, center: bool):
     """
     Overlay RX estimated frequency line on top of the spectrogram.
@@ -146,6 +146,207 @@ def overlay_est_freq(ax_spec, rx_df: Optional[pd.DataFrame], fs: float, frame_le
 
     ax_spec.plot(t, f, 'w', linestyle='dotted', linewidth=1.5)
 
+
+# ==============================================================================
+# ==============================================================================
+
+def gen_ref_chirp(fs: float, L: int, f0: float, f1: float) -> np.ndarray:
+    """
+    Generate complex reference chirp of length L using phase accumulation.
+    Matches the TX pattern: instantaneous freq linearly ramps from f0 to f1 over L samples.
+    """
+    if L <= 0:
+        return np.zeros((0,), dtype=np.complex64)
+    if L == 1:
+        return np.ones((1,), dtype=np.complex64)
+
+    ramp = (f1 - f0) / float(L - 1)  # Hz per sample
+    phase = 0.0
+    out = np.empty((L,), dtype=np.complex64)
+
+    two_pi = 2.0 * np.pi
+    for n in range(L):
+        out[n] = np.cos(phase) + 1j * np.sin(phase)
+        fn = f0 + ramp * n
+        phase += two_pi * (fn / fs)
+        phase = np.fmod(phase, two_pi)
+
+    return out
+
+
+def matched_filter_mag_vs_tau(
+    x: np.ndarray,
+    ref: np.ndarray,
+    max_tau: int,
+) -> Tuple[np.ndarray, int, float, float, float]:
+    """
+    Compute |corr(tau)| for tau=0..max_tau using constant correlation length.
+    Returns:
+      mags[tau], tau_hat, peak_mag, mean_mag, metric(=peak/mean)
+    """
+    x = np.asarray(x)
+    ref = np.asarray(ref)
+    N = int(x.size)
+    L = int(ref.size)
+    if L < 1:
+        raise ValueError("Reference length must be >= 1")
+
+    max_tau = int(min(max_tau, N - L))
+    if max_tau < 0:
+        raise ValueError("Signal too short for the chosen template length")
+
+    mags = np.empty((max_tau + 1,), dtype=np.float64)
+
+    # numpy.vdot(a,b) = conj(a) dot b
+    for tau in range(max_tau + 1):
+        seg = x[tau : tau + L]
+        acc = np.vdot(ref, seg)  # sum conj(ref[n]) * seg[n]
+        mags[tau] = np.abs(acc)
+
+    tau_hat = int(np.argmax(mags))
+    peak_mag = float(mags[tau_hat])
+    mean_mag = float(np.mean(mags))
+    metric = peak_mag / (mean_mag + 1e-12)
+    return mags, tau_hat, peak_mag, mean_mag, metric
+
+
+def plot_matched_filter_mag_vs_tau(
+    ax: plt.Axes,
+    x_frame: np.ndarray,
+    fs: float,
+    chirp_f0: float,
+    chirp_f1: float,
+    max_tau: int,
+    title: str = "",
+):
+    """
+    Plot matched filter magnitude vs tau for a single frame buffer x_frame.
+    Uses a reference chirp length L = len(x_frame) - max_tau so that all taus use the same L.
+    """
+    x_frame = np.asarray(x_frame)
+    N = x_frame.size
+    max_tau = int(min(max_tau, N - 1))
+    L = N - max_tau
+    if L < 2:
+        ax.text(0.5, 0.5, "Frame too short for chosen max_tau", ha="center", va="center", transform=ax.transAxes)
+        ax.set_axis_off()
+        return None
+
+    ref = gen_ref_chirp(fs=fs, L=L, f0=chirp_f0, f1=chirp_f1)
+    mags, tau_hat, peak_mag, mean_mag, metric = matched_filter_mag_vs_tau(x_frame, ref, max_tau=max_tau)
+
+    ax.plot(np.arange(mags.size), mags)
+    ax.axvline(tau_hat, linestyle="--")
+    ax.set_xlabel("tau (samples)")
+    ax.set_ylabel("|corr(tau)|")
+    ax.set_title(title or f"Matched filter |corr(tau)|  tau_hat={tau_hat}, metric={metric:.2f}")
+    ax.grid(True, alpha=0.2)
+
+    # return info for the next stage (dechirp/FFT)
+    return {
+        "ref": ref,
+        "L": L,
+        "tau_hat": tau_hat,
+        "peak_mag": peak_mag,
+        "mean_mag": mean_mag,
+        "metric": metric,
+    }
+
+
+def dechirp_and_fft(
+    x_frame: np.ndarray,
+    ref: np.ndarray,
+    tau_hat: int,
+    fs: float,
+    nfft: int = 4096,
+    center: bool = True,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Align by tau_hat, dechirp by conj(ref), then FFT magnitude in dB.
+    Returns (freqs_hz, mag_db).
+    """
+    x_frame = np.asarray(x_frame)
+    ref = np.asarray(ref)
+
+    L = ref.size
+    seg = x_frame[tau_hat : tau_hat + L]
+    z = seg * np.conj(ref)
+
+    # FFT
+    nfft = int(max(nfft, 1))
+    Z = np.fft.fft(z, n=nfft)
+    mag_db = 20.0 * np.log10(np.abs(Z) + 1e-12)
+    freqs = np.fft.fftfreq(nfft, d=1.0 / fs)
+
+    if center:
+        mag_db = np.fft.fftshift(mag_db)
+        freqs = np.fft.fftshift(freqs)
+
+    return freqs, mag_db
+
+
+def plot_dechirped_fft_mag(
+    ax: plt.Axes,
+    x_frame: np.ndarray,
+    fs: float,
+    ref: np.ndarray,
+    tau_hat: int,
+    nfft: int = 4096,
+    center: bool = True,
+    title: str = "",
+):
+    freqs, mag_db = dechirp_and_fft(
+        x_frame=x_frame,
+        ref=ref,
+        tau_hat=tau_hat,
+        fs=fs,
+        nfft=nfft,
+        center=center,
+    )
+    ax.plot(freqs, mag_db)
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel("Magnitude (dB)")
+    ax.set_title(title or "Dechirped FFT magnitude")
+    ax.grid(True, alpha=0.2)
+
+
+def plot_est_cfo_vs_frame(
+    ax: plt.Axes,
+    rx_df: Optional[pd.DataFrame],
+    fs: float,
+    frame_len: int,
+    title: str = "",
+):
+    """
+    Plot est_cfo_hz vs time (frame start times).
+    If 'detected' exists, mark detected frames.
+    """
+    if rx_df is None or rx_df.empty:
+        ax.text(0.5, 0.5, "No rx_results.csv found", ha="center", va="center", transform=ax.transAxes)
+        ax.set_axis_off()
+        return
+
+    if "est_cfo_hz" not in rx_df.columns:
+        ax.text(0.5, 0.5, "rx_results.csv missing est_cfo_hz", ha="center", va="center", transform=ax.transAxes)
+        ax.set_axis_off()
+        return
+
+    t = (rx_df["frame_id"].to_numpy(dtype=float) * frame_len) / fs
+    cfo = rx_df["est_cfo_hz"].to_numpy(dtype=float)
+
+    ax.plot(t, cfo)
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Estimated CFO (Hz)")
+    ax.set_title(title or "Estimated CFO vs time")
+    ax.grid(True, alpha=0.2)
+
+    if "detected" in rx_df.columns:
+        det = rx_df["detected"].to_numpy(dtype=int)
+        if np.any(det == 1):
+            ax.scatter(t[det == 1], cfo[det == 1], s=18, marker="o")
+
+# ==============================================================================
+# ==============================================================================
 
 def build_argparser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="Plot spectrogram from DataWriter frame dumps (.c64).")
@@ -208,11 +409,61 @@ def main():
     im, zlabel, _ = plot_spectrogram(ax_spec, x, cfg, title)
     fig.colorbar(im, ax=ax_spec, label=zlabel)
 
-    if args.overlay_rx:
-        overlay_est_freq(ax_spec, rx_df, fs=args.fs, frame_len=frame_len, center=args.center)
+    # SINGLE TONE RECEIVER PLOTTING
+    # if args.overlay_rx:
+    #     overlay_est_freq(ax_spec, rx_df, fs=args.fs, frame_len=frame_len, center=args.center)
+    # plot_rx(ax_rx, rx_df, fs=args.fs, frame_len=frame_len)
+    # ax_rx.set_title(f"RX results: {rx_path.name}")
+    # plt.tight_layout()
+    # plt.show()
+    
+    # CHIRP RECEIVER PLOTTING
+    # Choose a single frame_id to inspect for MF + dechirp FFT.
+    # Use the stage that matches what your receiver saw (usually "imp").
+    mf_frame_id = args.frame_start  # or set explicitly
+    mf_max_tau = 64                 # set >= your worst-case timing offset
+    chirp_f0 = 1e3                  # set to your RX expected chirp start
+    chirp_f1 = 5e3                  # set to your RX expected chirp end
+    mf_nfft = 4096
 
-    plot_rx(ax_rx, rx_df, fs=args.fs, frame_len=frame_len)
-    ax_rx.set_title(f"RX results: {rx_path.name}")
+    sel_one = FrameSelection(stage=args.stage, frame_start=mf_frame_id, frame_count=1)
+    x1, frame_ids1, frame_len1 = load_frames_concat(args.run, sel_one)
+    x1 = x1[:frame_len1]  # ensure exactly one frame
+
+    fig2, (ax_mf, ax_fft, ax_cfo) = plt.subplots(3, 1, figsize=(10, 10))
+
+    mf_info = plot_matched_filter_mag_vs_tau(
+        ax=ax_mf,
+        x_frame=x1,
+        fs=args.fs,
+        chirp_f0=chirp_f0,
+        chirp_f1=chirp_f1,
+        max_tau=mf_max_tau,
+        title=f"MF magnitude vs tau (frame {mf_frame_id})",
+    )
+
+    if mf_info is not None:
+        plot_dechirped_fft_mag(
+            ax=ax_fft,
+            x_frame=x1,
+            fs=args.fs,
+            ref=mf_info["ref"],
+            tau_hat=mf_info["tau_hat"],
+            nfft=mf_nfft,
+            center=args.center,
+            title="Dechirped FFT magnitude",
+        )
+    else:
+        ax_fft.set_axis_off()
+        ax_fft.text(0.5, 0.5, "MF failed; cannot dechirp", ha="center", va="center", transform=ax_fft.transAxes)
+
+    plot_est_cfo_vs_frame(
+        ax=ax_cfo,
+        rx_df=rx_df,
+        fs=args.fs,
+        frame_len=frame_len,
+        title="Estimated CFO vs frame",
+    )
 
     plt.tight_layout()
     plt.show()
