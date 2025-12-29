@@ -10,6 +10,7 @@
 #include "Channel.hpp"
 #include "Logger.hpp"
 #include "DataWriter.hpp"
+#include "SimConfig.hpp"
 
 #define FRAME_COUNT 100
 
@@ -22,6 +23,20 @@ int main() {
     // 4. visualization
 
     Logger logger("sim.log");
+
+    SimConfig simConfig("../sim_config/chirp.json");
+    simConfig.validateJson(logger);
+    logger.log(Logger::Level::INFO, "Simulation config imported");
+
+    if (simConfig["tx_BRUH"]["tx_type_BRUH"] == "Chirp") {
+        std::cout << "CHIRPPING" << std::endl;
+    }
+    if (simConfig.at("tx_BRUH") == "Chirp") {
+        std::cout << "CHIRPPING" << std::endl;
+    }
+    
+    // std::cout << simConfig.at("HOT") << std::endl;
+
 
     // TxConfigSingleTone tx_config;
     // std::unique_ptr<Transmitter> tx_ptr = std::make_unique<TransmitterSingleTone>(tx_config);
