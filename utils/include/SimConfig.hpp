@@ -21,25 +21,25 @@ public:
     // for all transmitters, impairments, and receivers
     bool validateJson(Logger& logger) {
         bool valid = true;
-        if (config_.count("tx") == 0) {
+        if (!config_.contains("tx")) {
             logger.log(Logger::Level::ERROR, "Config json does not contain the required 'tx' element");
             valid = false;
         }
-        if (config_.count("imp") == 0) {
+        if (!config_.contains("imp")) {
             logger.log(Logger::Level::ERROR, "Config json does not contain the required 'imp' element");
             valid = false;
         }
-        if (config_.count("rx") == 0) {
+        if (!config_.contains("rx")) {
             logger.log(Logger::Level::ERROR, "Config json does not contain the required 'rx' element");
             valid = false;
         }
 
-        if (config_["frame_count"] == 0) {
+        if (!config_.contains("frame_count")) {
             logger.log(Logger::Level::ERROR, "Config json does not contain the required 'frame_count' element");
             valid = false;
         }
 
-        if (config_["frame_size"] == 0) {
+        if (!config_.contains("frame_size")) {
             logger.log(Logger::Level::ERROR, "Config json does not contain the required 'frame_size' element");
             valid = false;
         }
@@ -47,12 +47,12 @@ public:
         return valid;
     }
 
-    json& at(std::string str) {
-        return config_.at("BRUH");
+    json& at(const std::string& str) {
+        return config_.at(str);
     }
 
-    json& operator[](std::string str) {
-        return config_[str];
+    const json& at(const std::string& str) const {
+        return config_.at(str);
     }
 
 private:

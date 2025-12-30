@@ -32,9 +32,11 @@ def main():
 
     if args.run:
         if IS_WINDOWS:
-            run([str(BUILD_DIR / "Debug" / "signal-analysis.exe")])
+            run([str(BUILD_DIR / "Debug" / "signal-analysis.exe"), 
+                 str(ROOT_DIR / "sim_config" / "chirp.json")])
         else:
-            run([str(BUILD_DIR / "signal-analysis")])
+            run([str(BUILD_DIR / "signal-analysis"), 
+                 str(ROOT_DIR / "sim_config" / "chirp.json")])
 
     if args.viz:
         # get latest dump directory

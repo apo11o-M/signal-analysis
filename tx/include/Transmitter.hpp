@@ -25,6 +25,10 @@ public:
     // Generate a new frame
     virtual Frame next_frame() = 0;
 
+    double getSampleRateHz() const {
+        return common_config_.sample_rate_hz;
+    }
+
 protected:
     TxConfigCommon common_config_;
     std::uint64_t frame_index_ = 0;
