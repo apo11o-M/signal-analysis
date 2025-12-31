@@ -53,9 +53,10 @@ int main(int argc, char* argv[]) {
 
         TxConfigChirp tx_config;
         tx_config.common = tx_common_config;
-        tx_config.chirp_start_hz = simConfig.at("tx").at("chirp_start_hz").get<double>();
-        tx_config.chirp_end_hz = simConfig.at("tx").at("chirp_end_hz").get<double>();
-        tx_config.max_freq_hz = simConfig.at("tx").at("max_freq_hz").get<double>();
+        tx_config.f0 = simConfig.at("tx").at("f0").get<double>();
+        tx_config.chirp_rate_hz = simConfig.at("tx").at("chirp_rate_hz").get<double>();
+        tx_config.duration_sample = simConfig.at("tx").at("duration_sample").get<std::size_t>();
+        tx_config.sweep_direction = simConfig.at("tx").at("sweep_direction").get<int8_t>();
         tx_config.amplitude = simConfig.at("tx").at("amplitude").get<float>();
         tx_ptr = std::make_unique<TransmitterChirp>(tx_config);
     }

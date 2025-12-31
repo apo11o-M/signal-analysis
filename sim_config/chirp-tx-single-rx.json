@@ -1,5 +1,5 @@
 {
-  "frame_count": 50,
+  "frame_count": 4,
   "frame_size": 4096,
   "tx": {
     "tx_type": "Chirp",
@@ -33,7 +33,7 @@
     }
   },
   "rx": {
-    "rx_type": "Chirp",
+    "rx_type": "SingleTone",
     "sample_rate_hz": 1.0e6,
     "snr_threshold_db": 1.0,
     "chirp_start_hz": 1.0e3,

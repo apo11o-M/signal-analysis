@@ -33,7 +33,8 @@ def main():
     if args.run:
         if IS_WINDOWS:
             run([str(BUILD_DIR / "Debug" / "signal-analysis.exe"), 
-                 str(ROOT_DIR / "sim_config" / "chirp.json")])
+                #  str(ROOT_DIR / "sim_config" / "chirp.json")])
+                 str(ROOT_DIR / "sim_config" / "chirp-tx-single-rx.json")])
         else:
             run([str(BUILD_DIR / "signal-analysis"), 
                  str(ROOT_DIR / "sim_config" / "chirp.json")])

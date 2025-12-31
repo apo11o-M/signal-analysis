@@ -362,8 +362,8 @@ def build_argparser() -> argparse.ArgumentParser:
                     help="Number of frames to include (default: all)")
 
     ap.add_argument("--fs", type=float, default=4096, help="Sample rate in Hz")
-    ap.add_argument("--nfft", type=int, default=2048, help="FFT size per segment")
-    ap.add_argument("--noverlap", type=int, default=1536, help="Overlap samples (must be < nfft)")
+    ap.add_argument("--nfft", type=int, default=512, help="FFT size per segment")
+    ap.add_argument("--noverlap", type=int, default=384, help="Overlap samples (must be < nfft)")
 
     # Proper booleans (instead of default=True with a string)
     ap.add_argument("--center", dest="center", action="store_true", help="Center freq axis around 0 Hz")
@@ -410,11 +410,12 @@ def main():
     fig.colorbar(im, ax=ax_spec, label=zlabel)
 
     # SINGLE TONE RECEIVER PLOTTING
-    # if args.overlay_rx:
-    #     overlay_est_freq(ax_spec, rx_df, fs=args.fs, frame_len=frame_len, center=args.center)
-    # plot_rx(ax_rx, rx_df, fs=args.fs, frame_len=frame_len)
-    # ax_rx.set_title(f"RX results: {rx_path.name}")
-    # plt.tight_layout()
+    if args.overlay_rx:
+        overlay_est_freq(ax_spec, rx_df, fs=args.fs, frame_len=frame_len, center=args.center)
+    # ax_spec.set_ylim(-20000, 20000)
+    plot_rx(ax_rx, rx_df, fs=args.fs, frame_len=frame_len)
+    ax_rx.set_title(f"RX results: {rx_path.name}")
+    plt.tight_layout()
     # plt.show()
     
     # CHIRP RECEIVER PLOTTING
