@@ -34,7 +34,7 @@ def main():
         if IS_WINDOWS:
             run([str(BUILD_DIR / "Debug" / "signal-analysis.exe"), 
                 #  str(ROOT_DIR / "sim_config" / "chirp.json")])
-                 str(ROOT_DIR / "sim_config" / "chirp-tx-single-rx.json")])
+                 str(ROOT_DIR / "sim_config" / "chirp.json")])
         else:
             run([str(BUILD_DIR / "signal-analysis"), 
                  str(ROOT_DIR / "sim_config" / "chirp.json")])
@@ -44,11 +44,13 @@ def main():
         dump_dir = sorted((CURR_DIR / "dumps").iterdir())[-1]
         
         if IS_WINDOWS:
-            run(["python", str(ROOT_DIR / "visual" / "plot_simulation.py"), "--run", \
-                str(dump_dir), "--stage", "tx", "--fs", "1e6", "--overlay-rx"])
+            run(["python", str(ROOT_DIR / "visual" / "plot_simulation.py"), \
+                "--run", str(dump_dir), "--stage", "tx", "--fs", "1e6", \
+                "--overlay-rx", "--spec_ylim", "-6e4", "6e4"])
         else:
-            run(["python3", str(ROOT_DIR / "visual" / "plot_simulation.py"), "--run", \
-                str(dump_dir), "--stage", "tx", "--fs", "1e6", "--overlay-rx"])
+            run(["python3", str(ROOT_DIR / "visual" / "plot_simulation.py"), \
+                "--run", str(dump_dir), "--stage", "tx", "--fs", "1e6", \
+                "--overlay-rx", "--spec_ylim", "-6e4", "6e4"])
 
     print("=====================================================================")    
     print("[INFO] Signal analysis runner finished")

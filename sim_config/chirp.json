@@ -1,5 +1,5 @@
 {
-  "frame_count": 50,
+  "frame_count": 10,
   "frame_size": 4096,
   "tx": {
     "tx_type": "Chirp",

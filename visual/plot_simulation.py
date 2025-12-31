@@ -378,6 +378,9 @@ def build_argparser() -> argparse.ArgumentParser:
 
     ap.add_argument("--overlay-rx", action="store_true",
                     help="Overlay RX est_freq on the spectrogram")
+    
+    ap.add_argument("--spec_ylim", type=float, nargs=2, default=[-500000, 500000],
+                    help="Set spectrogram y-axis limits (min max)")
 
     return ap
 
@@ -412,7 +415,7 @@ def main():
     # SINGLE TONE RECEIVER PLOTTING
     if args.overlay_rx:
         overlay_est_freq(ax_spec, rx_df, fs=args.fs, frame_len=frame_len, center=args.center)
-    # ax_spec.set_ylim(-20000, 20000)
+    ax_spec.set_ylim(args.spec_ylim)
     plot_rx(ax_rx, rx_df, fs=args.fs, frame_len=frame_len)
     ax_rx.set_title(f"RX results: {rx_path.name}")
     plt.tight_layout()
