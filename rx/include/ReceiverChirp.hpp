@@ -28,6 +28,11 @@ struct RxConfigChirp {
     // peak magnitude / (mean magnitude + eps)
     double detection_threshold = 3.0;
 
+    // exclude +/- this many samples around the correlation peak when estimating
+    // the mean noise floor, this protects the mean from getting inflated by the
+    // peak and throw off the detection threshold
+    std::size_t mean_guard_samples = 64;
+
     // TODO: CFO estimation parameters
 };
 
@@ -110,13 +115,14 @@ public:
         std::size_t max_tau = N - L;
         if (config_.search_span > 0) {
             max_tau = std::min(config_.search_span, max_tau);
-        }       
-        
+        }
+
+        const std::size_t tau_count = max_tau + 1;
+        std::vector<double> mags(tau_count, 0.0);
+
         // stage 1: match filter to find the timing offset of the chirp
         double best_mag = -1.0;
         std::size_t best_tau = 0;
-        double sum_mag = 0.0;
-        std::size_t count = 0;
 
         for (std::size_t tau = 0; tau <= max_tau; tau++) {
             cfloat acc_corr(0.0f, 0.0f);
@@ -130,16 +136,39 @@ public:
 
             // keep track of the best correlation magnitude
             const double mag = static_cast<double>(std::abs(acc_corr));
-            sum_mag += mag;
+            mags[tau] = mag;
+
             if (mag > best_mag) {
                 best_mag = mag;
                 best_tau = tau;
             }
+        }
+
+        // calculate mean magnitude
+        const std::size_t G = config_.mean_guard_samples;
+        const std::size_t exclude_low = (best_tau > G) ? (best_tau - G) : 0;
+        const std::size_t exclude_high = std::min(max_tau, best_tau + G);
+        double sum_mag = 0.0;
+        std::size_t count = 0;
+
+        for (std::size_t tau = 0; tau <= max_tau; tau++) {
+            if (tau >= exclude_low && tau <= exclude_high) continue;
+            sum_mag += mags[tau];
             count++;
         }
 
-        const double mean_mag = (count > 0) ? sum_mag / static_cast<double>(count) : 0.0;
+        // fallback, if guard window excluded everything (which could happen if
+        // max_tau is too small), revert to mean over all taus
+        if (count == 0) {
+            sum_mag = 0.0;
+            count = mags.size();
+            for (double m : mags) sum_mag += m;
+        }
 
+        double mean_mag = (count > 0) ? sum_mag / static_cast<double>(count) : 0.0;
+
+
+        // update result struct
         res->est_tau_samples = best_tau;
         res->corr_peak_mag = best_mag;
         res->corr_mean_mag = mean_mag;

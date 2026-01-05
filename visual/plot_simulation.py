@@ -436,8 +436,11 @@ def build_argparser() -> argparse.ArgumentParser:
     ap.add_argument("--overlay-rx", action="store_true",
                     help="Overlay RX est_freq on the spectrogram")
     
-    ap.add_argument("--spec_ylim", type=float, nargs=2, default=[-500000, 500000],
-                    help="Set spectrogram y-axis limits (min max)")
+    ap.add_argument("--spec_ylim_max", type=float, default=500000,
+                    help="Set spectrogram y-axis max limits")
+    ap.add_argument("--spec_ylim_min", type=float, default=-500000,
+                    help="Set spectrogram y-axis min limits")
+
     ap.add_argument("--det_win_samples", type=int, default=None,
                     help="Highlight window length in samples for detections "
                         "(default: frame_len if not specified)")
@@ -468,6 +471,7 @@ def main():
         gridspec_kw={"height_ratios": [3, 1]},
         figsize=(10, 7),
     )
+    ax_spec.set_ylim(args.spec_ylim_min, args.spec_ylim_max)
 
     im, zlabel, times = plot_spectrogram(ax_spec, x, cfg, title)
     fig.colorbar(im, ax=ax_spec, label=zlabel)
@@ -475,7 +479,6 @@ def main():
     # SINGLE TONE RECEIVER PLOTTING
     # if args.overlay_rx:
     #     overlay_est_freq(ax_spec, rx_df, fs=args.fs, frame_len=frame_len, center=args.center)
-    # ax_spec.set_ylim(args.spec_ylim)
     # plot_rx(ax_rx, rx_df, fs=args.fs, frame_len=frame_len)
     # ax_rx.set_title(f"RX results: {rx_path.name}")
     # plt.tight_layout()
