@@ -71,7 +71,9 @@ public:
 
     ReceiverChirp(const RxConfigChirp& config) 
         : Receiver(config.common), config_(config),
-          replica_chirp_(config.duration_sample, cfloat(0.0f, 0.0f)) {
+          replica_chirp_(config.duration_sample, cfloat(0.0f, 0.0f)),
+          prev_tail_(config.duration_sample - 1, cfloat(0.0f, 0.0f)),
+          have_prev_tail_(false) {
 
         // generate the replica chirp for match filtering
         const std::size_t N = config_.duration_sample;
@@ -163,4 +165,9 @@ private:
     RxConfigChirp config_;
 
     std::vector<cfloat> replica_chirp_;
+
+    // to handle chirps that span frame boundaries. Handle just one frame 
+    // spanning for now
+    std::vector<cfloat> prev_tail_;
+    bool have_prev_tail_ = false;
 };
