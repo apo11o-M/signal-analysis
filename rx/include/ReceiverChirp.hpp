@@ -43,7 +43,7 @@ struct RxResultsChirp : public RxResults {
 
     // estimated timing offset, representing where the chirp starts/best aligned
     // in samples from the start of the frame
-    std::size_t est_tau_samples = 0;
+    int64_t est_tau_samples = 0;
     // correlation metrics
     double corr_peak_mag = 0.0;
     double corr_mean_mag = 0.0;
@@ -77,7 +77,7 @@ public:
     ReceiverChirp(const RxConfigChirp& config) 
         : Receiver(config.common), config_(config),
           replica_chirp_(config.duration_sample, cfloat(0.0f, 0.0f)),
-          prev_tail_(config.duration_sample - 1, cfloat(0.0f, 0.0f)),
+          prev_tail_((config.duration_sample > 0) ? (config.duration_sample - 1) : 0, cfloat(0.0f, 0.0f)),
           have_prev_tail_(false) {
 
         // generate the replica chirp for match filtering
@@ -106,30 +106,56 @@ public:
 
         const std::size_t N = frame.data_.size();
         const std::size_t L = config_.duration_sample;
-        if (N < 2) {
+        if (N < 2 || L == 0) {
             res->detected = false;
             return res;
         }
 
+        const std::size_t tail_length = (L > 0) ? (L - 1) : 0;
+
+        // build the extended buffer: [prev tail (or 0s), current frame]
+        std::vector<cfloat> x_ext;
+        x_ext.reserve(tail_length + N);
+
+        if (tail_length > 0) {
+            if (have_prev_tail_ && prev_tail_.size() == tail_length) {
+                x_ext.insert(x_ext.end(), prev_tail_.begin(), prev_tail_.end());
+            }
+            else {
+                // first frame (or mismatch), pad with 0s so the math still works
+                x_ext.insert(x_ext.end(), tail_length, cfloat(0.0, 0.0));
+            }
+        }
+        const cfloat* x_ptr = frame.data_.h_data();
+        x_ext.insert(x_ext.end(), x_ptr, x_ptr + N);
+
         // set up search range
-        std::size_t max_tau = N - L;
-        if (config_.search_span > 0) {
-            max_tau = std::min(config_.search_span, max_tau);
+        const std::size_t Next = x_ext.size();
+        if (Next < L) {
+            res->detected = false;
+            update_prev_tail_(frame);
+            return res;
         }
 
-        const std::size_t tau_count = max_tau + 1;
+        std::size_t max_tau_ext = Next - L;
+        if (config_.search_span > 0) {
+            const std::size_t max_tau_rel = std::min(config_.search_span, (N >= L) ? (N - L) : 0);
+            max_tau_ext = std::min(max_tau_ext, tail_length + max_tau_rel);
+        }
+
+        const std::size_t tau_count = max_tau_ext + 1;
         std::vector<double> mags(tau_count, 0.0);
 
         // stage 1: match filter to find the timing offset of the chirp
         double best_mag = -1.0;
-        std::size_t best_tau = 0;
+        std::size_t best_tau_ext = 0;
 
-        for (std::size_t tau = 0; tau <= max_tau; tau++) {
+        for (std::size_t tau = 0; tau <= max_tau_ext; tau++) {
             cfloat acc_corr(0.0f, 0.0f);
 
             // calculate correlation for this tau offset
             for (std::size_t n = 0; n < L; n++) {
-                const cfloat x = frame.data_[tau + n];
+                const cfloat x = x_ext[tau + n];
                 const cfloat s = replica_chirp_[n];
                 acc_corr += x * std::conj(s);
             }
@@ -140,25 +166,25 @@ public:
 
             if (mag > best_mag) {
                 best_mag = mag;
-                best_tau = tau;
+                best_tau_ext = tau;
             }
         }
 
         // calculate mean magnitude
         const std::size_t G = config_.mean_guard_samples;
-        const std::size_t exclude_low = (best_tau > G) ? (best_tau - G) : 0;
-        const std::size_t exclude_high = std::min(max_tau, best_tau + G);
+        const std::size_t exclude_low = (best_tau_ext > G) ? (best_tau_ext - G) : 0;
+        const std::size_t exclude_high = std::min(max_tau_ext, best_tau_ext + G);
         double sum_mag = 0.0;
         std::size_t count = 0;
 
-        for (std::size_t tau = 0; tau <= max_tau; tau++) {
+        for (std::size_t tau = 0; tau <= max_tau_ext; tau++) {
             if (tau >= exclude_low && tau <= exclude_high) continue;
             sum_mag += mags[tau];
             count++;
         }
 
         // fallback, if guard window excluded everything (which could happen if
-        // max_tau is too small), revert to mean over all taus
+        // max_tau_ext is too small), revert to mean over all taus
         if (count == 0) {
             sum_mag = 0.0;
             count = mags.size();
@@ -166,10 +192,10 @@ public:
         }
 
         double mean_mag = (count > 0) ? sum_mag / static_cast<double>(count) : 0.0;
-
+        const int64_t tau_rel = static_cast<int64_t>(best_tau_ext) - static_cast<int64_t>(tail_length);
 
         // update result struct
-        res->est_tau_samples = best_tau;
+        res->est_tau_samples = tau_rel;
         res->corr_peak_mag = best_mag;
         res->corr_mean_mag = mean_mag;
 
@@ -182,13 +208,45 @@ public:
             res->snr_db = -std::numeric_limits<float>::infinity();
             return res;
         } else {
-            cout << "Chirp detected: tau: " << best_tau 
+            cout << "Chirp detected: tau: " << best_tau_ext 
+                 << ", tau_rel = " << tau_rel
                  << ", ratio = " << ratio 
                  << ", threshold = " << config_.detection_threshold << endl;
         }
+
+        update_prev_tail_(frame);
+
         return res;
     }
 
+private:
+    void update_prev_tail_(const Frame& frame) {
+        const std::size_t L = config_.duration_sample;
+        const std::size_t N = frame.data_.size();
+        const std::size_t tail_length = (L > 0) ? (L - 1) : 0;
+
+        if (tail_length == 0) {
+            prev_tail_.clear();
+            have_prev_tail_ = false;
+            return;
+        }
+
+        prev_tail_.resize(tail_length, cfloat(0.0));
+        const cfloat* x_ptr = frame.data_.h_data();
+        
+        // copy the frame data to the prev_tail_ vector
+        if (N >= tail_length) {
+            std::copy_n(x_ptr + (N - tail_length), tail_length, prev_tail_.begin());
+        }
+        else {
+            // right align the frame that's too short for the entire prev_tail_
+            // vector, zero pad the front
+            const std::size_t pad = tail_length - N;
+            std::fill(prev_tail_.begin(), prev_tail_.begin() + pad, cfloat(0.0));
+            std::copy_n(x_ptr, N, prev_tail_.begin() + pad);
+        }
+        have_prev_tail_ = true;
+    }
 
 private:
     RxConfigChirp config_;
