@@ -345,6 +345,63 @@ def plot_est_cfo_vs_frame(
         if np.any(det == 1):
             ax.scatter(t[det == 1], cfo[det == 1], s=18, marker="o")
 
+
+def overlay_detections_on_spectrogram(
+    ax_spec: plt.Axes,
+    rx_df: Optional[pd.DataFrame],
+    fs: float,
+    frame_len: int,
+    t_min: float,
+    t_max: float,
+    det_win_samples: int,
+    *,
+    det_col: str = "detected",
+    tau_col: str = "est_tau_samples",
+):
+    """
+    Draw light time-span highlights on the spectrogram for detected events.
+
+    Each detection i highlights:
+      t0 = (frame_id * frame_len + est_tau_samples) / fs
+      t1 = t0 + det_win_samples / fs
+
+    Highlights are clamped to [t_min, t_max] (spectrogram visible region).
+    """
+    if rx_df is None or rx_df.empty:
+        return
+    if det_col not in rx_df.columns:
+        return
+
+    # tau is optional; if missing, assume 0 sample offset within frame
+    has_tau = tau_col in rx_df.columns
+
+    det = rx_df[det_col].to_numpy(dtype=int)
+    if not np.any(det == 1):
+        return
+
+    frame_ids = rx_df["frame_id"].to_numpy(dtype=np.int64)
+    taus = rx_df[tau_col].to_numpy(dtype=float) if has_tau else np.zeros_like(frame_ids, dtype=float)
+
+    # Convert to seconds
+    t0 = (frame_ids.astype(float) * frame_len + taus) / fs
+    dt = float(det_win_samples) / fs
+    t1 = t0 + dt
+
+    # Draw spans
+    for a, b, is_det in zip(t0, t1, det):
+        if is_det != 1:
+            continue
+
+        # clamp to visible region
+        aa = max(float(a), float(t_min))
+        bb = min(float(b), float(t_max))
+        if bb <= aa:
+            continue
+
+        # ax_spec.axvspan(aa, bb, color="white", alpha=0.18, linewidth=0)
+        ax_spec.axvline(aa, color="white", alpha=0.45, linewidth=1.0, zorder=6)
+        # ax_spec.axvline(bb, color="white", alpha=0.45, linewidth=1.0, zorder=6)
+
 # ==============================================================================
 # ==============================================================================
 
@@ -381,6 +438,9 @@ def build_argparser() -> argparse.ArgumentParser:
     
     ap.add_argument("--spec_ylim", type=float, nargs=2, default=[-500000, 500000],
                     help="Set spectrogram y-axis limits (min max)")
+    ap.add_argument("--det_win_samples", type=int, default=None,
+                    help="Highlight window length in samples for detections "
+                        "(default: frame_len if not specified)")
 
     return ap
 
@@ -409,17 +469,32 @@ def main():
         figsize=(10, 7),
     )
 
-    im, zlabel, _ = plot_spectrogram(ax_spec, x, cfg, title)
+    im, zlabel, times = plot_spectrogram(ax_spec, x, cfg, title)
     fig.colorbar(im, ax=ax_spec, label=zlabel)
 
     # SINGLE TONE RECEIVER PLOTTING
-    if args.overlay_rx:
-        overlay_est_freq(ax_spec, rx_df, fs=args.fs, frame_len=frame_len, center=args.center)
-    ax_spec.set_ylim(args.spec_ylim)
-    plot_rx(ax_rx, rx_df, fs=args.fs, frame_len=frame_len)
-    ax_rx.set_title(f"RX results: {rx_path.name}")
-    plt.tight_layout()
+    # if args.overlay_rx:
+    #     overlay_est_freq(ax_spec, rx_df, fs=args.fs, frame_len=frame_len, center=args.center)
+    # ax_spec.set_ylim(args.spec_ylim)
+    # plot_rx(ax_rx, rx_df, fs=args.fs, frame_len=frame_len)
+    # ax_rx.set_title(f"RX results: {rx_path.name}")
+    # plt.tight_layout()
     # plt.show()
+    # Detection highlight overlay (temporary debug)
+    det_win = args.det_win_samples if args.det_win_samples is not None else frame_len
+
+    # Spectrogram x-extent (in seconds) based on what you plotted
+    t_min, t_max = float(times[0]), float(times[-1])
+
+    overlay_detections_on_spectrogram(
+        ax_spec=ax_spec,
+        rx_df=rx_df,
+        fs=args.fs,
+        frame_len=frame_len,
+        t_min=t_min,
+        t_max=t_max,
+        det_win_samples=det_win,
+    )
     
     # CHIRP RECEIVER PLOTTING
     # Choose a single frame_id to inspect for MF + dechirp FFT.

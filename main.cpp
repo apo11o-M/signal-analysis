@@ -85,12 +85,12 @@ int main(int argc, char* argv[]) {
         RxConfigChirp rx_config;
         rx_config.common = rx_common_config;
         rx_config.frame_len = frameSize;
-        rx_config.chirp_start_hz = simConfig.at("rx").at("chirp_start_hz").get<double>();
-        rx_config.chirp_end_hz = simConfig.at("rx").at("chirp_end_hz").get<double>();
-        rx_config.search_max_offset_samples = simConfig.at("rx").at("search_max_offset_samples").get<std::size_t>();
-        rx_config.detection_threshold = simConfig.at("rx").at("detection_threshold").get<double>();
-        rx_config.cfo_est_skip_samples = simConfig.at("rx").at("cfo_est_skip_samples").get<std::size_t>();
-        rx_config.cfo_est_count_samples = simConfig.at("rx").at("cfo_est_count_samples").get<std::size_t>();
+        // rx_config.chirp_start_hz = simConfig.at("rx").at("chirp_start_hz").get<double>();
+        // rx_config.chirp_end_hz = simConfig.at("rx").at("chirp_end_hz").get<double>();
+        // rx_config.search_max_offset_samples = simConfig.at("rx").at("search_max_offset_samples").get<std::size_t>();
+        // rx_config.detection_threshold = simConfig.at("rx").at("detection_threshold").get<double>();
+        // rx_config.cfo_est_skip_samples = simConfig.at("rx").at("cfo_est_skip_samples").get<std::size_t>();
+        // rx_config.cfo_est_count_samples = simConfig.at("rx").at("cfo_est_count_samples").get<std::size_t>();
         rx_ptr = std::make_unique<ReceiverChirp>(rx_config);
     }
     else {

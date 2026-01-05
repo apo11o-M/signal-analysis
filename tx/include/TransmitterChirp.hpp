@@ -63,7 +63,6 @@ public:
 protected:
     TxConfigChirp config_;
     double phase_ = 0.0;
-    double freq_delta_hz_ = 0.0;
 
     // count samples within the current chip in case the chirp goes over 
     // the frame boundary

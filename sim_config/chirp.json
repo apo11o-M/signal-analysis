@@ -1,12 +1,12 @@
 {
-  "frame_count": 10,
+  "frame_count": 4,
   "frame_size": 4096,
   "tx": {
     "tx_type": "Chirp",
     "sample_rate_hz": 1.0e6,
     "f0": 1.0e3,
     "chirp_rate_hz": 5.0e6,
-    "duration_sample": 2048,
+    "duration_sample": 1625,
     "sweep_direction": 1,
     "amplitude": 0.5
   },
