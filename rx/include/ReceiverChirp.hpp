@@ -86,6 +86,7 @@ private:
 
 public:
     using cfloat = std::complex<float>;
+    using cdouble = std::complex<double>;
 
     ReceiverChirp(const RxConfigChirp& config) 
         : Receiver(config.common), config_(config),
@@ -157,15 +158,22 @@ public:
             : -std::numeric_limits<float>::infinity();
 
         if (!res->detected) {
-            cout << "Chirp not detected: ratio=" << ratio
-                << ", threshold=" << config_.detection_threshold
-                << ", tau_rel=" << mf_res.tau_rel
-                << endl;
-        } else {
-            cout << "Chirp detected: tau_ext=" << mf_res.best_tau_ext
+            cout << "Chirp not detected: "
+                << "tau_ext=" << mf_res.best_tau_ext
                 << ", tau_rel=" << mf_res.tau_rel
                 << ", ratio=" << ratio
                 << ", threshold=" << config_.detection_threshold
+                << ", est_cfo_hz=" << res->est_cfo_hz 
+                << endl;
+        } else {
+            res->est_cfo_hz = estimate_cfo_hz_(frame, mf_res.best_tau_ext);
+
+            cout << "Chirp detected: "
+                << "tau_ext=" << mf_res.best_tau_ext
+                << ", tau_rel=" << mf_res.tau_rel
+                << ", ratio=" << ratio
+                << ", threshold=" << config_.detection_threshold
+                << ", est_cfo_hz=" << res->est_cfo_hz 
                 << endl;
         }
 
@@ -288,8 +296,33 @@ private:
     // and receiver's local oscillators. This also happens when there is a doppler
     // shift due to relative motion between the tx and rx which is highly relevant
     // to this project
+    // TODO: We use phase estimator based for now, we'll implement fft based 
+    // estimator later
     double estimate_cfo_hz_(const Frame& frame, std::size_t best_tau_ext) const {
-        // TODO
+        const std::size_t L = config_.duration_sample;
+        if (L < 2) return 0.0;
+        const double fs = config_.common.sample_rate_hz;
+
+        // one lag accumulator: sum z*[n] z[n + 1] = |A|^2 e^{j 2π f_cfo / fs}
+        cdouble acc(0.0, 0.0);
+
+        // build z[n] on the fly from x[n + best_tau_ext] and s[n]
+        cfloat z_prev = sample_ext_(frame, best_tau_ext + 0) * std::conj(replica_chirp_[0]);
+
+        for (std::size_t n = 0; n + 1 < L; n++) {
+            const cfloat z_next = sample_ext_(frame, best_tau_ext + n + 1) * std::conj(replica_chirp_[n + 1]);
+            acc += std::conj(cdouble(z_prev.real(), z_prev.imag())) * 
+                   cdouble(z_next.real(), z_next.imag());
+            z_prev = z_next;
+        }
+
+        // if acc magnitude is near 0, return 0 to show the phase is unreliable
+        const double acc_mag = std::abs(acc);
+        if (acc_mag < EPSILON) return 0.0;
+
+        const double acc_phase_rad = std::atan2(acc.imag(), acc.real());
+        const double cfo_hz = (acc_phase_rad * fs) / (2.0 * M_PI);
+        return cfo_hz;
     }
 
 
