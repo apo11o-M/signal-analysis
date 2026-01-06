@@ -19,7 +19,7 @@ struct RxConfigChirp {
     // chirp definition
     double f0 = 1.0e3;              // starting frequency in Hz
     double chirp_rate_hz = 5.0e6;     // chirp rate (slope) in Hz/s
-    std::size_t duration_sample = 2048;   // duration in samples
+    std::size_t duration_sample = 1625;   // duration in samples
     int8_t sweep_direction = 1;     // 1 for up-chirp, -1 for down-chirp
 
     // 0 = search for chip in entire frame, otherwise limit search from sample 0
@@ -94,23 +94,7 @@ public:
           prev_tail_((config.duration_sample > 0) ? (config.duration_sample - 1) : 0, cfloat(0.0f, 0.0f)),
           have_prev_tail_(false) {
 
-        // generate the replica chirp for match filtering
-        const std::size_t N = config_.duration_sample;
-        const double chirp_rate = config_.chirp_rate_hz * (config_.sweep_direction > 0 ? 1.0 : -1.0);
-        const double fs = config_.common.sample_rate_hz;
-        double phase = 0.0;
-
-        for (std::size_t i = 0; i < N; i++) {
-            float re = static_cast<float>(std::cos(phase));
-            float im = static_cast<float>(std::sin(phase));
-            replica_chirp_[i] = cfloat(re, im);
-
-            // update instantaneous frequency
-            double fn = config_.f0 + chirp_rate * (static_cast<double>(i)) / fs;
-            phase += 2.0 * M_PI * (fn / fs);
-            phase = std::fmod(phase, 2.0 * M_PI);
-            if (phase < 0) phase += 2.0 * M_PI;
-        }
+        generate_replica_();
     };
 
     std::unique_ptr<RxResults> process_frame(const Frame& frame) {
@@ -182,6 +166,26 @@ public:
     }
 
 private:
+    void generate_replica_() {
+        // generate the replica chirp for match filtering
+        const std::size_t N = config_.duration_sample;
+        const double chirp_rate = config_.chirp_rate_hz * (config_.sweep_direction > 0 ? 1.0 : -1.0);
+        const double fs = config_.common.sample_rate_hz;
+        double phase = 0.0;
+
+        for (std::size_t i = 0; i < N; i++) {
+            float re = static_cast<float>(std::cos(phase));
+            float im = static_cast<float>(std::sin(phase));
+            replica_chirp_[i] = cfloat(re, im);
+
+            // update instantaneous frequency
+            double fn = config_.f0 + chirp_rate * (static_cast<double>(i)) / fs;
+            phase += 2.0 * M_PI * (fn / fs);
+            phase = std::fmod(phase, 2.0 * M_PI);
+            if (phase < 0) phase += 2.0 * M_PI;
+        }
+    }
+
     inline cfloat sample_ext_(const Frame& frame, std::size_t ext_idx) const {
         const std::size_t L = config_.duration_sample;
         const std::size_t tail_length = (L > 0) ? (L - 1) : 0;
