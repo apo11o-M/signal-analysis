@@ -12,13 +12,31 @@ This project parses a waveform json file, which then generates signals and trans
 - `visual/`: Visualization tools and modules
 - `utils/`: Utility functions and helpers that doesn't fit into `core/`
 
-## Build
+## Build & Run
+
+There are two stages of the program, running the simulation, and visualizing the results. One can run both stages separately or use the `run.py` script to run both stages in one go.
 
 ```bash
+# run the default simulation and visualization
+cd scripts
+python run.py
+```
+
+Or, if you want to run the stages separately, you can do:
+
+```bash
+# build and run the simulation
 mkdir build
 cd build
 cmake ..
 cmake --build .
+
+# run the simulation with a config file
+./signal-analysis.exe ../sim_config/chirp.json
+
+# visualize the results
+cd ../visual
+python visual plot_simulation.py
 ```
 
 ## Useful Books and Resources
