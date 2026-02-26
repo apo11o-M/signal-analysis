@@ -6,6 +6,7 @@
 #include "ReceiverSingleTone.hpp"
 #include "TransmitterChirp.hpp"
 #include "ReceiverChirp.hpp"
+#include "ReceiverChirpDopplerBank.hpp"
 
 #include "Channel.hpp"
 #include "Logger.hpp"

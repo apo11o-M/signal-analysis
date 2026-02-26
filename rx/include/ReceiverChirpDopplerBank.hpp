@@ -140,12 +140,13 @@ public:
 
         // =====================================================================
         // Match filter processing & update results structf
-        MatchFilterResult mf_res = match_filter_(frame, max_tau_ext);
+        // MatchFilterResult mf_res = match_filter_(frame, max_tau_ext);
+        MatchFilterResult mf_res = doppler_bank_acquire_(frame, max_tau_ext);
+
         res->est_tau_samples = mf_res.tau_rel;
         res->corr_peak_mag = mf_res.best_mag;
         res->corr_mean_mag = mf_res.mean_mag;
-        const double ratio = mf_res.best_mag / (mf_res.mean_mag + EPSILON);
-        res->detected = (ratio >= config_.detection_threshold);
+        res->detected = (mf_res.best_ratio >= config_.detection_threshold);
         res->snr_db = res->detected
             ? static_cast<float>(10.0 * std::log10((mf_res.best_mag + EPSILON) / (mf_res.mean_mag + EPSILON)))
             : -std::numeric_limits<float>::infinity();
@@ -154,17 +155,17 @@ public:
             cout << "Chirp not detected: "
                 << "tau_ext=" << mf_res.best_tau_ext
                 << ", tau_rel=" << mf_res.tau_rel
-                << ", ratio=" << ratio
+                << ", ratio=" << mf_res.best_ratio
                 << ", threshold=" << config_.detection_threshold
                 << ", est_cfo_hz=" << res->est_cfo_hz 
                 << endl;
         } else {
-            res->est_cfo_hz = estimate_cfo_hz_(frame, mf_res.best_tau_ext);
+            // res->est_cfo_hz = estimate_cfo_hz_(frame, mf_res.best_tau_ext);
 
             cout << "Chirp detected: "
                 << "tau_ext=" << mf_res.best_tau_ext
                 << ", tau_rel=" << mf_res.tau_rel
-                << ", ratio=" << ratio
+                << ", ratio=" << mf_res.best_ratio
                 << ", threshold=" << config_.detection_threshold
                 << ", est_cfo_hz=" << res->est_cfo_hz 
                 << endl;
@@ -419,8 +420,31 @@ private:
             return match_filter_doppler_(frame, max_tau_ext, 0.0);
         }
 
-        // TODO
+        const double T = static_cast<double>(L) / fs;
+        const double df_nat = 1.0 / T; // fs/L
+        const double overs = (config_.doppler_oversample > 0.0) ? config_.doppler_oversample : 1.0;
+        const double df = df_nat / overs;
 
+        const int K = static_cast<int>(std::ceil(config_.doppler_search_hz / df));
+        const std::size_t num_bins = static_cast<std::size_t>(2 * K + 1);
+
+        int k_min = -K, k_max = K;
+        if (config_.doppler_max_bins > 0 && num_bins > config_.doppler_max_bins) {
+            // cap k min and k max
+            int temp_K = std::max(0, static_cast<int>((config_.doppler_max_bins - 1) / 2));
+            k_min = -temp_K;
+            k_max = temp_K;
+        }
+
+        MatchFilterResult best{};
+        best.best_ratio = -1.0;
+        for (int i = k_min; i <= k_max; i++) {
+            const double fk = static_cast<double>(i) * df;
+            MatchFilterResult res = match_filter_doppler_(frame, max_tau_ext, fk);
+
+            if (res.best_ratio > best.best_ratio) best = res;
+        }
+        return best;
     }
 
 private:
