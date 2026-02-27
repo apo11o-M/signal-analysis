@@ -94,6 +94,26 @@ int main(int argc, char* argv[]) {
         // rx_config.cfo_est_count_samples = simConfig.at("rx").at("cfo_est_count_samples").get<std::size_t>();
         rx_ptr = std::make_unique<ReceiverChirp>(rx_config);
     }
+    else if (simConfig.at("rx").at("rx_type") == "ChirpDopplerBank") {
+        std::cout << "Receiver type: ChirpDopplerBank" << std::endl;
+        logger.log(Logger::Level::INFO, "Receiver type: ChirpDopplerBank");
+
+        RxConfigChirpDopplerBank rx_config;
+        rx_config.common = rx_common_config;
+        rx_config.frame_len = frameSize;
+        // rx_config.f0 = simConfig.at("rx").at("f0").get<double>();
+        // rx_config.chirp_rate_hz = simConfig.at("rx").at("chirp_rate_hz").get<double>();
+        // rx_config.duration_sample = simConfig.at("rx").at("duration_sample").get<std::size_t>();
+        // rx_config.sweep_direction = simConfig.at("rx").at("sweep_direction").get<int8_t>();
+        // rx_config.search_span = simConfig.at("rx").at("search_span").get<std::size_t>();
+        // rx_config.detection_threshold = simConfig.at("rx").at("detection_threshold").get<double>();
+        // rx_config.mean_guard_samples = simConfig.at("rx").at("mean_guard_samples").get<std::size_t>();
+        // rx_config.doppler_search_hz = simConfig.at("rx").at("doppler_search_hz").get<double>();
+        // rx_config.doppler_oversample = simConfig.at("rx").at("doppler_oversample").get<double>();
+        // rx_config.doppler_max_bins = simConfig.at("rx").at("doppler_max_bins").get<std::size_t>();
+
+        rx_ptr = std::make_unique<ReceiverChirpDopplerBank>(rx_config);
+    }
     else {
         std::cout << "Receiver type: Unknown.. \nAbort" << std::endl;
         logger.log(Logger::Level::ERROR, "Receiver type: Unknown.. \nAbort");

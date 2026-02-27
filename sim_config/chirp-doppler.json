@@ -1,0 +1,46 @@
+{
+  "frame_count": 4,
+  "frame_size": 4096,
+  "tx": {
+    "tx_type": "Chirp",
+    "sample_rate_hz": 1.0e6,
+    "f0": 1.0e3,
+    "chirp_rate_hz": 5.0e6,
+    "duration_sample": 1625,
+    "sweep_direction": 1,
+    "amplitude": 0.5
+  },
+  "imp": {
+    "imp_types": [
+      "gain", "cfo", "phase_offset", "timing_offset", "awgn"
+    ],
+    "gain": {
+      "gain": 1.0
+    },
+    "cfo": {
+      "cfo_hz": 250.0,
+      "initial_phase_rad": 0.0
+    },
+    "phase_offset": {
+      "phase_rad": 0.3
+    },
+    "timing_offset": {
+      "mode": "Circular",
+      "sample_offset": 7
+    },
+    "awgn": {
+      "snr_db": 20.0
+    }
+  },
+  "rx": {
+    "rx_type": "ChirpDopplerBank",
+    "sample_rate_hz": 1.0e6,
+    "snr_threshold_db": 1.0,
+    "chirp_start_hz": 1.0e3,
+    "chirp_end_hz": 5.0e3,
+    "search_max_offset_samples": 4,
+    "detection_threshold": 8.0,
+    "cfo_est_skip_samples": 4,
+    "cfo_est_count_samples": 0
+  }
+}
